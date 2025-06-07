@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<body>
+<?php
+// Initialize variables
+$message = '';
+$success = false;
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'], $_POST['mobile'])) {
+    $amount = intval($_POST['amount']);
+    $mobile = htmlspecialchars($_POST['mobile']);  // Sanitize phone number to prevent XSS
+
+    if ($amount > 0 && !empty($mobile)) {
+        // API credentials and request payload
+        $DATA   =   '<?xml version="1.0" encoding="ISO-8859-1"?>
+                        <g7bill>
+                          <_key_>FED3AEC348B94A426817E05071A279B6</_key_> <!-- Replace with your actual API key -->
+                          <cmd>stores</cmd>
+                          <jc>orders</jc>
+                          <package>
+                              <code>airtime</code>
+                              <amount>' . $amount . '</amount>
+                          </package>
+                          <mobile>' . $mobile . '</mobile>
+                          <callback>http://url.com/order.php</callback>
+                        </g7bill>';
+
+        // Initialize cURL session
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, "https://my.jpesa.com/api/");
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $DATA);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: text/xml"));
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 400);
+
+        // Execute the API request
+        $return = curl_exec($ch);
+        curl_close($ch);
+
+        // Handle the response
+        if ($return) {
+            $response = json_decode($return, true);
+            if (isset($response['status']) && $response['status'] == 'success') {
+                $message = "? Your data purchase of UGX $amount was successful!";
+                $success = true;
+            } else {
+                $message = "? Error: " . (isset($response['message']) ? $response['message'] : 'Unknown error');
+            }
+        } else {
+            $message = "? No response from the API.";
+        }
+    } else {
+        $message = "? Invalid amount or phone number.";
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buy Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            text-align: center;
+        }
+        h2 {
+            margin-bottom: 1rem;
+        }
+        .message {
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+        .message.success {
+            color: green;
+        }
+        .message.error {
+            color: red;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Buy Data</h2>
+
+        <?php if ($message): ?>
+            <div class="message <?php echo $success ? 'success' : 'error'; ?>">
+                <?php echo $message; ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="post">
+            <input type="text" name="mobile" placeholder="Enter mobile number" required />
+            <input type="number" name="amount" placeholder="Enter amount (UGX)" required min="1" />
+            <button type="submit">Buy Data</button>
+        </form>
+    </div>
+</body>
+</html>
